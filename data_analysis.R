@@ -62,10 +62,55 @@ data_diamonds_quali <- Filter(is.factor, data_diamonds)
 data_diamonds_cont <- dcast(data_diamonds_quali, 
                             cut ~ color,
                             fun.aggregate = length, 
-                            value.var = c('color',
-                                          "clarity"
-                                          )
+                            value.var     = c('color',
+                                              "clarity"
                             )
+)
 
+## start of MFA analysis ----
+#create groups for chracterizig each aspect of diamond
+group_weight <- c("carat")
+
+group_size <- c("length",
+                "width",
+                "depth"
+)
+
+group_physical_asp <- c("cut",
+                        "color",
+                        "clarity"
+)
+
+group_size_frequency <- c("depth_relation",
+                          "table"
+)
+
+#change order of column by groups
+data_diamonds <- data_diamonds[,c(group_weight, 
+                                  group_size, 
+                                  group_physical_asp, 
+                                  group_size_frequency)]
+#MFa analysis
+data_diamonds_mfa <- MFA(data_diamonds, 
+                         group      = c(1,3,3,2), 
+                         type       = c("c","s","n","s"),
+                         name.group = c("weight",
+                                        "size",
+                                        "physical_aspects",
+                                        "size_frequencies"
+                         ),
+                         graph=FALSE
+)
+
+#summary of analysis
+summary(data_diamonds_mfa)
+
+#inertia and eigen values
+data_diamonds_mfa$eig
+
+"Avec 2 comp on n'explique que 21% de la variance. 
+Pour avoir un pourcentage 50% il faudrait prendre au minimum 8 composantes.
+Pour des raisons pratiques on va se limiter à deux composantes cependant.
+"
 
 
