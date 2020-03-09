@@ -279,6 +279,7 @@ data_mfa <- MFA(data,
                          ),
                          graph=FALSE
 )
+##Standarder weight and size
 
 #summary of analysis
 summary(data_mfa)
@@ -289,21 +290,70 @@ data_mfa$eig
 Avec 2 comp on n'explique que 21% de la variance. 
 Pour avoir un pourcentage 50% il faudrait prendre au minimum 8 composantes.
 Pour des raisons pratiques on va se limiter à deux composantes principales.
-## 5.1 Information des groupes
 Regardons de plus près comment ces deux axes sont constituées, du point de vue des groupes, puis variables et enfin des individus.
+
+## 5.1 Information des groupes
+
 
 ```{r}
 #extract all important info according to groups and not variables only
 groups_mfa_results <- get_mfa_var(data_mfa, "group")
 
 #show all 
-groups_mfa_results$Lg
+groups_mfa_results$coord
 ```
+
+We can already notice than for the first dimension weight, size, physical aspects are mainly used for 1st dimension. For the y axis, the group of size frequencies are used most.
+
+Let us show the synthetic variables created in order to represent the groups from the information 
+
+```{r}
+fviz_mfa_var(data_mfa, "group")
+```
+
+As mentioned above the  weight and size variables are practically the same. These are also positively correlated. The synthetic variable physical_aspects seems to be mildly correlated with both size and frequencies. However, frequencies seems to be completely uncolerelated to the rest of the groups.
+
 
 
 ## 5.2 Information des variables
 
+
+```{r}
+fviz_mfa_var(data_mfa)
+```
+
 ## 5.3 information des individus
 
-##
+```{r}
+fviz_mfa_ind(data_mfa, col.ind = "cos2", gradient.cols=c("#024cb2","#02b26f","#b29002","#b20202"))
+```
+Individuals gathered auround the center seem to be the worst represented. However, the individuals ont the 1 axis rather on the outside seem to be best represented.
+
+On the second axis, it sems the individuals are bddly epresented.
+This may stem from the fact that several axis should be added.
+
+## 5.4 Contributions
+```{r}
+fviz_contrib(data_mfa, choice = "quanti.var", axes = 1, ylim=c(0,25))
+fviz_contrib(data_mfa, choice = "quanti.var", axes = 2, ylim=c(0,100))
+```
+
+```{r}
+fviz_contrib(data_mfa, choice="quali.var", axes=1:2)
+```
+
+Les variables qualitatives contribuent très très peu à l'ensemble. Hormis la variable cut qui a tendance à contribuer le plus. Les individus synthétique créée à partir des individus de type Premium cut, ont l'air de contribuer le plus. Cependant le reste peut être considéré comme négligeable.
+
+```{r}
+fviz_contrib(data_mfa, choice="ind", xlim=c(0,25), axis=1:2)
+```
+
+Contrary to the pca analysis, no individuals stand out with the same amplitude.
+
+
+
+```{r}
+#for general analysis overview
+dimdesc(data_mfa)
+```
 
