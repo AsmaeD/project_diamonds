@@ -1,5 +1,5 @@
 ---
-title: "Projet Data Mining 2 - Analyse Econométrique du prix des diamands"
+title: "Projet Data Mining 2 - Analyse Econométrique du prix des diamants"
 output: html_notebook
 ---
 
@@ -13,6 +13,10 @@ library(corrplot)
 library(factoextra)
 library(FactoMineR)
 library(questionr)
+library(lmtest)
+library(pls)
+library(plsr)
+library(car)
 ```
 
 # __1. Introduction__
@@ -25,16 +29,6 @@ L'indistrie du diamant connaît depuis le début de 20eme siècle un essor inég
 En effet, le diamant reste une pierre coûteuse. La question que l'on va se poser n'est pas du pourquoi le prix, mais plutôt comment ce prix peut-il être expliqués par des caractéristiques objectives ?
 
 Nous travaillerons dans cet étude de cas, sur un jeu de données contenant plusieurs caractéristiques et mesures de diamants.
-
-
-Depuis le 1er Février 2020 le taux du livret A est descendu à son plus bas niveau : 0.5%.
-Intérêts et frais de gestion de compte sont alors quasi-similaires et le Livret A n'apparait donc plus comme un produit bancaire attractif et rentable aux yeux de nombreux Français. De plus, la fragilité et l'instabilité de l'économie mondiale rebutte nombre de personnes à faire confiance aux différentes banques.
-La tendance depuis plusieurs années est d'investir dans des biens immobiliers ou dans l'art pour placer ses économies "en sécurité" et surtout pouvoir faire de la plus-value dans le futur.
-Cependant, acheter une maison ou des tableaux a un coût et seules les personnes possédant déjà un patrimoine élevé peuvent se le permettre. Dans ce cas, quelles sont les options de placement accessibles aux bourses plus modestes ?
-Après avoir longuement réfléchi, ils nous est apparu que les pierres et métaux précieux sont toujours des options de placement intéressantes. Nous avons tous déjà entendu nos grands-parents dire que l'or est une valeur sûre, que son cours ne fait qu'augmenter depuis la guerre et qu'avoir toujours un peu d'or chez soi permet de se sortir de situations financières peu agréables.
-L'objet de notre étude n'est pas l'or, nous avons préféré nous pencher vers les pierres précieuses et notamment le Diamant. Qui n'a jamais rêvé d'avoir une belle bague ornée de diamants ou de personnaliser sa couronne dentaire avec un petit diamant incrusté (phéomène qui semble avoir été très à la mode chez certains rappeur Américains) ?
-
-Finalement, nous proposons une étude statistique du prix des diamants en fonction de plusieurs variables afin de permettre aux futurs acheteurs de ne pas se faire arnaquer par des revendeurs peu scrupuleux et ainsi maximiser leur plus-value future.
 
 
 # __2. La base de données__
@@ -56,7 +50,7 @@ __y__: variable quantitative représentant la largeur d'un diamant, en mm.
 __z__: variable quantitative représentant la profondeur d'un diamant, en mm.
 
 __cut__ : variable qualitative ordonnée représentant la qualité de la coupe d'un diamant.
-5 modalités : Fair<Good<Very Good<Premium<Ideal
+5 modalités : Fair<Good<VeryGood<Premium<Ideal
 
 __color__ : variable qualitative ordonnée représentant la couleur d'un diamant.
 7 modalités : D<E<F<G<H<I<J (D représentant la meilleure couleur, J la pire. Le classement semble avoir été fait dans le sens inverse de la variable cut)
@@ -67,25 +61,34 @@ __clarity__ : variable qualitative ordonnée mesurant la clareté d'un diamant.
 __price__ : variable quantitative représentant le prix d'un diamant, en dollars.
 
 
-__Remarque__ : Notre jeu de données étant très volumineux, nous allons étudier q'un échantillon représentant 10% de ce jeu de données.
+__Remarque__ : Notre jeu de données étant très volumineux, nous allons étudier qu'un échantillon représentant 10% de ce jeu de données.
+
 
 # __3. Analyse descriptive__
 ## 3.1 Analyse globale
+
 ```{r}
 str(diamonds)
 ```
-On retrouve bien les 3 variables qualitatives cut, color et clarity avec leurs différentes modalités. Toutes les autres variables sont des variables quantitatives.
+
+On retrouve bien les 3 variables qualitatives __cut__, __color__ et __clarity__ avec leurs différentes modalités. Toutes les autres variables sont des variables quantitatives.
 On remarque que la colonne price est rangée par order croissant de prix. Il faudra tenir compte de cela lors de l'échantillonnage pour rester fidèle aux proportions des différentes modalités et prix du jeu de données initial.
 
 ```{r}
 summary(diamonds)
 ```
+
 La variable __cut__ met en évidence que dans ce jeu de données, il y a en majorité des diamants de coupe Ideal, puis de coupe Premium puis de coupe Very Good. Les coupes Good et Fair sont très peu représentées. Il faudra encore une fois faire attention à respecter les proportions lors de l'échantillonage.
+
 En revanche pour la variable __clarity__, ce sont les modalités représentant une qualité intermédiaire qui sont les plus représentées. Il semble y avoir peu de diamants de clarté IF et I1.
+
 La variable __color__ semble être répartie de manière gaussienne, avec la couleur intermédiaire G la plus présente dans ce jeu de données.
 
-Pour ce qui est des variables quantitative, on remarque que l'étendu de la variable __carat__ est assez grande. Cela veut surement dire qu'il y a des diamants très différents dans ce jeu de données. Il en est de même pour la variable __price__ (le diamant le moins cher étant à 326 dollars et le plus cher à 18823 dollars).
-Au vu des valaurs que peuvent prendre les variables x, y et z on peut simplement dire que les diamants de ce jeu de données ont tendances à être plus larges et profonds que longs.
+Pour ce qui est des variables quantitatives, on remarque que l'étendu de la variable __carat__ est assez grande. Cela veut surement dire qu'il y a des diamants très différents dans ce jeu de données.
+
+Il en est de même pour la variable __price__ (le diamant le moins cher étant à 326 dollars et le plus cher à 18823 dollars). La moyenne des prix est elle de 3933 dollars et la médiane de 2401 dollars. La moitié des diamants de ce jeu de données ont donc des prix inférieurs à 2400 dollars. Et le 3ème quartile indique que 75% des diamants ont des prix inférieurs à 5324 dollars. La majorité des diamants présents dans ce jeu ont donc des prix inférieurs à 6000 dollars.
+
+Aux vues des valaurs que peuvent prendre les variables x, y et z, on peut simplement dire que les diamants de ce jeu de données ont tendances à être plus larges et profonds que longs.
 
 
 Changons maintenant le nom des colonnes pour avoir plus de lisibilité : 
@@ -103,14 +106,23 @@ colnames(diamonds) <- c("carat",
 diamonds
 ```
 
-Représentons graphiquement les distributions des différentes variables : 
+## 3.2 Analyse descriptive des variables explicatives
+
+Représentons graphiquement les distributions des différentes variables explicatives qualitatives : 
 
 ```{r}
 plot(diamonds$cut, xlab="Diamonds distribution by cut")
 plot(diamonds$color, xlab="Diamonds distribution by color")
 plot(diamonds$clarity, xlab="Diamonds Distribution by clarity")
 ```
-On retrouve bien graphiquement ce qui a été dit précédemment quand aux distributions des variables qualitatives.
+
+On retrouve bien graphiquement ce qui a été dit précédemment quant aux distributions des variables qualitatives.
+
+La sous-représentation de certaines modalités peut être une caractéristique du marché des diamants : peut-être ne met-on pas en vente un diamant de coupe médiocre à part s'il possède d'autres aspects plus intéressants. Pour la couleur d'un diamant, peut-être est-il rare de trouver une source de minerai donnant une "bonne" couleur. Et peut-être que peu de diamants ayant une "mauvaise" couleur sont mis en vente, à part si ceux-ci possèdent d'autres caractéristiques intéressantes.
+Pour la clareté, il est surement très rare de trouver des diamants ayant la meilleure clareté (I1) et encore une fois il est possible qu'il soit coutûme de ne pas mettre en vente de diamants ayant une qualité de clareté médiocre si celui-ci ne possède pas de caractéristiques intéressantes par ailleurs.
+
+
+Regardons maintenant la distribution des variables quantitatives :
 
 ```{r}
 hist(diamonds$carat,breaks=25)
@@ -120,12 +132,15 @@ hist(diamonds$depth,breaks=50)
 hist(diamonds$width,breaks=100)
 hist(diamonds$length,breaks=100)
 ```
-La majorité des diamants on des poids compris entre 0 et 2 carats.
-Les variables __table__, __fdepth__, __depth__ et __width__ ont des distributions Gaussiennes alors que la variable __length__ pas du tout.
+
+La majorité des diamants on des poids compris entre 0.2 et 1.5 carats, ce qui correspond à des poids en gramme compris entre 0.04 et 0.3. Nous avons donc à faire dans cette base de données principalement à de petits diamants.
+
+Les variables __table__, __fdepth__, __depth__ et __width__ ont des distributions gaussiennes alors que la variable __length__ pas du tout. La longeur des diamants de ce jeu de données est donc très hétérogène comparé aux deux autres variables de mesure que sont __depth__ et __width__ .
 
 ```{r}
 boxplot(diamonds[,c(1,5,6,8,9,10)])
 ```
+
 On remarque grâce à ce boxplot que les variables __fdepth__ et __table__ ont beaucop de points outliers. Les variables __width__ et __depth__ également mais dans une moindre mesure. On veillera dans la suite à mettre ces individus outliers en supplémentaire pour les utiliser lors de l'interprétation et non lors de l'apprentissage du modèle. (Il peut s'agir d'erreur de mesure)
 
 ## 3.2 Analyse de la variable __price__
@@ -134,40 +149,109 @@ On remarque grâce à ce boxplot que les variables __fdepth__ et __table__ ont b
 hist(diamonds$price)
 boxplot(diamonds$price)
 ```
-On remarque que la majorité des diamants de ce jeu de données ont des prix inférieurs à 10000 dollars et que ceux ayant un prix supérieur à 12000 dollars sont considérés comme outliers par le logiciel Rstudio. Il faudra donc porter un attention particulière à ces individus.
+
+On remarque que la majorité des diamants de ce jeu de données ont des prix inférieurs à 5000 dollars (on retrouve les résultats du summary) et que ceux ayant un prix supérieur à 12000 dollars sont considérés comme outliers par le logiciel Rstudio.
+
+Nous allons donc porter un attention particulière à ces individus pour bien comprendre quelles caractéristiques font augmenter si fortement le prix d'un diamant.
+
+```{r}
+diamonds_filtered = filter(diamonds, price > 6000)
+summary(diamonds_filtered)
+```
+
+Les diamants ayant des prix supérieurs à 6000 dollars ont des poids supérieurs ou égaux à 0.63 carat, ce qui est à peu près équivalent à la médiane des poids du jeu de données complet. On en conclut donc que dès l'instant ou le poids d'un diamant dépasse un certain seuil (approximativement 0.6 d'après ces données), son prix a tendance à augmenter assez fortement.
+
+Pour la variable __cut__, qui est réputée comme bon indicateur du prix d'un diamant, le changement notable est la forte augmentation du pourcentage de diamants de coupe Premium dans le jeu de données filtré comparé au jeu de données complet, ainsi que la diminution assez forte du pourcentage de diamant de coupe Ideal dans le jeu filtré comparé au jeu complet. On en retire donc que ce n'est pas forcément la coupe Ideal qui fera augmenter le prix d'un diamant mais en revanche la coupe Premium semble être beaucoup plus récurrente chez les diamants valant plus de 6000 dollars.
+
+Pour la variable __color__ qui est aussi réputée pour influencer le prix d'un diamant, on remarque une forte diminution en pourcentage des modalités D et E qui sont les 2 "meilleures" couleurs et une très forte augmentation en pourcentage des modalités G,H,I et J, qui sont les "moins bonnes" couleurs (J étant la pire). On se rend donc compte que ce n'est pas forcément la meilleure couleur d'un diamant qui fera systématiquement augmenter son prix. Ce qui peut nous paraitre très étrange car il est coutume de penser que plus un diamant a une belle couleur plus il sera cher. D'après ce jeu de données, ceci ne semble pas être vrai. Attention néanmoins, il se peut que beaucoup des diamants ayant une bonne couleur aient d'autres caractéristiques tirant leur prix vers le bas...
+
+Pour la variable clarity qui encore une fois est considérée comme un très bon indicateur pour le prix d'un diamant, on observe une augmentation en pourcentage des modalités SI2, VS1 et VS2 qui correspondent respectivement à des diamants ayant de petites inclusions, facilement identifiables à la loupe et à des diamants de très petites inclusions, difficilement identifiables à la loupe. On note une diminution en pourcentage des modalités VVS1 et IF, correspondant aux deux meilleurs claretés possibles. Il se peut que cela soit dû à la sous-représentation de ces modalités dans le jeu de données complet.
+
+Les deux variables __fdepth__ et __table__ sont elles très peu impactées par ce filtage, elles ne semblent pas jouer de rôle significatif dans l'augmentation du prix d'un diamant.
+
+Pour ce qui est des variables représentant les dimensions globales d'un diamant, on remarque juste que les diamants de plus de 6000 dollars ont tendances à être un peu plus longs, larges et profonds que la moyenne de tous les diamants du jeu complet, ce qui peut s'expliquer par leur poids plus élevé en moyenne. En revanche, la profondeur maximale pour les diamants filtrés est de 8.06 alors qu'elle est de 31,8 pour le jeu complet. Il se peut donc que l'individu ayant cette mesure soit un outlier. Il semble que la valeur de la largeur maximal soit aussi une erreur.
+
+```{r}
+suspicious1 = filter(diamonds, depth==31.800)
+suspicious2 = filter(diamonds, width==58.9)
+suspicious1
+suspicious2
+```
+
+Aux vues des résultats, il semble que 31.8 et 58.9 soientt des erreurs de recopie et que les bonnes valeurs soient plutôt 3.18 et 5.89. Nous décidons donc de modifier ces valeurs.
+
+```{r}
+diamonds[48411,'depth']=3.18
+diamonds[24068,'width']=5.89
+diamonds[49190,'width']=3.18
+summary(diamonds)
+```
+
+Nous allons maintenant pouvoir comparer les distributions des différentes variables, pour des prix de vente supérieurs à 6000 dollars.
+
+```{r}
+diamonds_filtered = filter(diamonds, price > 6000)
+plot(diamonds_filtered$cut, xlab="Diamonds distribution by cut")
+plot(diamonds_filtered$color, xlab="Diamonds distribution by color")
+plot(diamonds_filtered$clarity, xlab="Diamonds Distribution by clarity")
+hist(diamonds_filtered$carat,breaks=50)
+hist(diamonds_filtered$table,breaks=50)
+hist(diamonds_filtered$fdepth,breaks=50)
+hist(diamonds_filtered$depth,breaks=50)
+hist(diamonds_filtered$width,breaks=100)
+hist(diamonds_filtered$length,breaks=100)
+```
+
+On retrouve la même répartition des données pour la variable __cut__, on a toujours en majorité des diamants ayant une coupe de qulité supérieure ou égale à Very Good.
+
+On retrouve également une répartition similaire pour la variable __clarity__. En revanche, la répartition de la variable __color__ est encore plus gaussienne que sur l'échantillon filtré que sur l'échantillon complet, avec la modalité G la plus représentée.
+
+En ce qui concerne les variables qualitatives, les histogrammes sont légèrement décalés vers la droite par rapport à ceux du jeu complet, ce qui indique une moyenne plus élevée, comme il a déjà été mentionné auparavant.
 
 ## 3.3 Etude des corrélations 
 
+Les résultats que nous avons observés jusque là sont des résultats marginaux, il faut prendre en compte si elle existe, la corrélation entre les variables explicatives, qui peut fausser les interprétations des résultats.
+
 ```{r}
-corrplot(cor(diamonds[,-c(2,3,4)]))  #Corrélation des variables quantitatives
+corrplot::corrplot(cor(diamonds[,-c(2,3,4)]))  #Corrélation des variables quantitatives
 ```
-On remarque grâce à ce graphique des corrélations que les variables __price__, __length__, __width__, __depth__ et __carat__ sont très corrélées positivement. Le prix d'un diamant semble donc à première vu être déterminé par ses dimensions et son poids (en carat), en excluant les variables qualitatives de l'étude.
+
+On remarque grâce à ce graphique des corrélations que les variables __length__, __width__, __depth__ et __carat__ sont très corrélées positivement et qu'elles sont également toutes très corrélées positivement à la variable à expliquer __prix__. Le prix d'un diamant semble donc à première vu être déterminé par ses dimensions et son poids (en carat), en excluant les variables qualitatives de l'étude.
+
 De plus, on décèles une légère corrélation négative entre les variables __table__ et __fdepth__.
+
+
+Etude des corrélations entre variables qualitatives:
 
 ```{r}
 tab_cont1=table(diamonds$cut, diamonds$color)
 chisq.test(tab_cont1)
 ```
+
 Au vu de la très faible p-value du test du khi-deux d'indépendance entre la variable __cut__ et la variable __color__, on en déduit que ce deux variables ne sont pas indépendantes (on rejette Ho)
 
 ```{r}
 tab_cont2=table(diamonds$cut, diamonds$clarity)
 chisq.test(tab_cont2)
 ```
+
 On obtient le même résultat ici, les variables __cut__ et __clarity__ ne sont pas indépendantes.
 
 ```{r}
 tab_cont3=table(diamonds$color, diamonds$clarity)
 chisq.test(tab_cont3)
 ```
+
 Les variables __color__ et __clarity__ ne sont pas non plus indépendantes.
 
-__Remarque__ : Nous venons de montrer que les 3 variables qualitatives sont non-indépendantes et qu'il y beaucoup de corrélation entre les variables quantitatives explicatives. Cela nous posera surement des problèmes de modélisation et d'interprétation des résultast lors de nos différentes régressions futures.
+__Remarque__ : Nous venons de montrer que les 3 variables qualitatives sont non-indépendantes et qu'il y a beaucoup de corrélations entre les variables quantitatives explicatives. Cela nous posera sûrement des problèmes de modélisation et d'interprétation des résultast lors de nos différentes régressions futures. Il nous faudra donc certainement trouver un modèle pouvant s'affranchir de ces problèmes de multicorélation.
 
 
-# __4. Analyse en Composantes Principales__
+# __4. Analyse Factorielle multiple__
 
-Procédons maintenant à une analyse en composantes principales sur les variables qualitatives présentes dans ce jeu de données pour voir si l'on peut tirer d'autres informations sur les liens entre nos Variables explicatives Xi et la variable cible à expliquer Y.
+Ici il s'agit ici de considérer le jeu de données dans sa globalité et non en séparant données catégorielles et quantitatives.
+
+La première étape est de créer un échantillon du jeu de données complet pour rendre les temps de calculs plus rapides et les graphiques plus lisibles.
 
 ## 4.1 Echantillonnage
 
@@ -177,97 +261,49 @@ Ind=seq.int(1,n,10)
 data=diamonds[Ind,]           #On a donc un échantillon de 5394 observations, en prenant un                                    individus tous les 10 individus
 data
 
-corrplot(cor(data[,-c(2,3,4)]))
+corrplot::corrplot(cor(data[,-c(2,3,4)]))
 boxplot(data[,c(1,5,6,8,9,10)])
 
 ```
-On retrouve les mêmes corrélations entre variables quantitatives que sur le jeu de données complet à l'exception peut être d'une corrélation plus faible entre les variables __depth__ et __price__.
-On a également diminué le nombre d'outliers. Il en reste néanmoins encore quelques uns que nous pourons éliminer lors de l'ACP.
 
-## 4.2 ACP
+On retrouve les mêmes corrélations entre variables quantitatives que sur le jeu de données complet à l'exception peut être d'une corrélation plus faible entre les variables __depth__, __length__, __width__ et __price__.
 
-```{r}
-data_acp=PCA(data,quali.sup=c(2,3,4),quanti.sup=5)
-#On met la variable fdepth en sup car c'est une fonction de length, width et depth
-#on met également les 3 variables qualitatives en supplémentaire car l'ACP ne peut prendre en que de variables qualitatives.
-```
-### 4.2.1 Etude des individus
+Il semble également y avoir beaucoup moins de points abérants.
 
-On peut voir sur le graphe des individus qu'ils sont pour la quasi totalité tous regroupés à un même endroit du schéma. Le nuage semble également se diviser en quatre groupes, un groupe dans chaque cadran du repère. On tentera de voir à quoi cela peut correpondre avec l'étude des variables.
-On remarque néanmoins qu'une dizaine d'individus se distinguent des autres. Nous allons tout d'abord vérifier si ces points ne seraient pas des outliers (mal représentés dans la plan à cause de la projection sur ces axes).
-Comme la part d'inertie expliquée par la dimension 1 est de 77,15%, nous allons reconstruire le nuage des individus en ne gardant que ceux dont le cos2 est supérieur à 0.7.
+## 4.2 Analyse factorielle multiple
 
-```{r}
-plot.PCA(data_acp,choix="ind",select="cos2 0.7",unselect=0.7)
-```
-Nous voyons donc que 2 individus parmi la dizaine cités plus haut ont disparus de la représentation, nous les enlevons donc du modèle par la suite
+Pour effectuer une analyse factorielle multiple, les caractéristiques des diamants de notre jeu de données doivent d'abord être regroupées selon ce qu'elles repésentent.
 
-```{r}
-data_acp_supp=PCA(data,quali.sup=c(2,3,4),quanti.sup=5, ind.sup=c(2453,4842))
-```
-
-```{r}
-fviz_contrib(data_acp_supp, choice = "ind", axes = 1, ylim=c(0,5), top=40)
-fviz_contrib(data_acp_supp, choice = "ind", axes = 2, ylim=c(0,5), top=40)
-```
-Les individus 2764 et 2714 sont ceux qui contribuent le plus à la dimension 1, comme vu sur le nuage des individus précédemment. L'individu 5287 contribue le plus à l'axe 2, à hauteur d'1%, ce qui est très conséquent au vu de la taille de l'échantillon (5394 individus).
-
-###○ 4.2.2 Etude des variables
-
-Le cercle des corrélations des variables montre que les varaibles __price__, __carat__, __depth__, __width__ et __length__ sont quasiment confonues. On retrouve ici la forte corrélation positive évoquée au début de l'analyse. De plus, ces variables sont très proches de l'axe 1 donc on en déduit que la dimension 1 met en oppostion les diamants ayant des prix élevés, une longueur, largeur et profondeur importantes et un poids (en carat) élevé aux diamants ayant un prix faible, une longueur, largeur, profondeur faible et un poids (en carat) faible.
-La variable __table__ elle est quasiment orthogonale aux autres et contribue fortement à la dimension 2. On en déduit donc que la dimension 2 met en opppostion les diamants ayant une forte de valeur pour la variable __table__ et ceux ayant une faible valeur.
-La variables quantitative supplémentaire __fdepth__ est elle assez mal représentée sur le cercle, ce qui veut dire qu'elle ne contribuerait pas beacoup au plan constitué de la dimension 1 et 2. On retrouve par contre qu'elle est assez faiblement négativement corrélée avec la variable __table__.
-
-Vérifions la contribution des variables aux différentes dimensions:
-```{r}
-fviz_contrib(data_acp_supp, choice = "var", axes = 1, ylim=c(0,25))
-fviz_contrib(data_acp_supp, choice = "var", axes = 2, ylim=c(0,100))
-```
-Comme prévu, les variables __length__, __width__, __carat__, __depth__ et __price__ contribuent chacunes à hauteur de 20% à la dimension 1. La variable table elle n'y contribue quasiment pas.
-En revanche, elle contribue énormément à la dimension 2.
-
-### 4.2.3 Choix des axes
-Regardons maintenant en fonction du pourcentage d'inertie projetée sur chaque axe combien de dimensions il faudrait garder dans la suite de l'étude.
-```{r}
-fviz_eig(data_acp_supp, addlabels = TRUE)
-```
-On voit très clairement qu'une seule dimension explique déjà plus de 80% de l'information contenu dans le jeu de données. On prend donc très peu de risques en ne retenant qu'un axe et surtout on diminue grandement le nombre de variables explicatives.
-
-Avec cette analyse sur Composantes Principales on pourrait donc conclure que pour expliquer le prix d'un diamant, il suffit de connaitre sa longueur, largeur, profondeur et poids. Et que plus un diamant est "lourd", long, large et profond, plus son prix sera élevé."en acp on n'expliuque pas une variable en fonction des autres, à clarifier"
-
-Or, ces résulats ne prennent en compte que les variables quantitatives à notre disposition et si les variables qualitatives avaient également été prises en compte les résultats en seraient peut-être différents. D'ailleurs, si l'on regarde attentivement le nuage des individus, on pouura s'apercevoir que la modalité "Ideal" de la variable __cut__ se trouve dans le cadran inférieur gauche, du coté des diamants au prix faible, et aux petites dimensions, ayant une valeur de __table__ également fiable alors que c'est la coupe de diamant considérée comme étant la meilleure.
-
-# __5. Analyse Factorielle multiple__
-
-Ici il s'agit de prendre le jeu de données dans sa globalité et non en séparant données catégorielles et quantitatives. Pour effectuer une analyse factorielle multiple, les caractéristiques ds diamants de notre jeu de données doivent d'abord être regroupés selon ce qu'ils repésentent.
 ```{r}
 #create groups for chracterizig each aspect of diamond
+
 group_weight <- c("carat")
 
 group_size <- c("length",
                 "width",
                 "depth"
 )
-
 group_physical_asp <- c("cut",
                         "color",
                         "clarity"
 )
-
 group_size_frequency <- c("fdepth",
                           "table"
 )
-
 ```
-D'un côté nous avons des mesures des diamnts à regrouper ensemble (même unité), d'un autre côté  son poids. Nous avons aussi regroupés les caractéristiques qulitatives (aspects visuels) ainsi que les frequences et pourcentages.
 
-Ceci étnt fait, nous pouvons commencer l'application de la méthode d'AFM.
+D'un côté nous avons des mesures des diamants à regrouper ensemble (même unité), d'un autre côté leur poids. Nous avons aussi regroupés les caractéristiques qualitatives (aspects visuels) ainsi que les fréquences et pourcentages.
+
+Ceci étant fait, nous pouvons commencer l'application de la méthode d'AFM.
+
 ```{r}
 #change order of column by groups
+
 data <- data[,c(group_weight, 
                 group_size, 
                 group_physical_asp, 
                 group_size_frequency)]
+
 #MFa analysis
 data_mfa <- MFA(data, 
                          group      = c(1,3,3,2), 
@@ -280,80 +316,363 @@ data_mfa <- MFA(data,
                          graph=FALSE
 )
 ##Standarder weight and size
-
 #summary of analysis
 summary(data_mfa)
-
-#inertia and eigen values
-data_mfa$eig
 ```
-Avec 2 comp on n'explique que 21% de la variance. 
-Pour avoir un pourcentage 50% il faudrait prendre au minimum 8 composantes.
-Pour des raisons pratiques on va se limiter à deux composantes principales.
-Regardons de plus près comment ces deux axes sont constituées, du point de vue des groupes, puis variables et enfin des individus.
 
-## 5.1 Information des groupes
+Cette sortie nous donne beaucoup d'informations diverses sur les contributions des différentes variables aux axes, ainsi que la contribution de chaque groupe de variables créés. Nous les exploiterons plus en détails dans la suite.
+
+Nous pouvons néanmoins d'ores et déjà remarquer que si l'on ne retient que 2 composantes principales, nous n'expliquons que 21% de la variance. Pour avoir un pourcentage de 50% il faudrait retenir au minimum 8 composantes.
+
+Pour des raisons pratiques nous allons nous limiter dans cette étude à deux composantes principales.
+
+Regardons de plus près comment ces deux axes sont constitués, du point de vue des groupes, puis des variables et enfin des individus.
+
+### 4.2.1 Information des groupes
 
 
 ```{r}
 #extract all important info according to groups and not variables only
 groups_mfa_results <- get_mfa_var(data_mfa, "group")
-
 #show all 
-groups_mfa_results$coord
+groups_mfa_results$cos2
 ```
 
-We can already notice than for the first dimension weight, size, physical aspects are mainly used for 1st dimension. For the y axis, the group of size frequencies are used most.
+Les groupes les mieux représentés dans le plan F1/F2 sont les groupes "weight", "size" et "size_frequencies" qui regroupent toutes les variables quantitatives. Le groupe "physical_aspect" n'est lui pas bien représenté dans ce plan, nous ne pourrons donc pas dire grand chose sur ce groupe.
 
-Let us show the synthetic variables created in order to represent the groups from the information 
+```{r}
+groups_mfa_results$contrib
+```
+
+Le tableau des contributions montre que l'axe 1 est majoritairement défini par les groupes "weight" et "size" (contributions quasi égales) suivi par le groupe "physical_aspects". Le deuxième est quant à lui principalement défini par les groupes "size_frequencies" et "physical_aspects".
+
+Essayons de visualiser graphiquement ces informations : 
 
 ```{r}
 fviz_mfa_var(data_mfa, "group")
+fviz_contrib(data_mfa, choice="group", axes=1:2)
 ```
 
-As mentioned above the  weight and size variables are practically the same. These are also positively correlated. The synthetic variable physical_aspects seems to be mildly correlated with both size and frequencies. However, frequencies seems to be completely uncolerelated to the rest of the groups.
+On retrouve bien dans ce graphique tout ce qui a été mentionné précédemment. Les groupes "weight" et "size" sont quasiment confondus sur le plan F1/F2. Cela signifie que les 2 groupes sont très fortement positivement corrélés. (Ce qui semble logique car on a déjà mis en lumière une forte corrélation positive entre les variables définissant ces 2 groupes). Le groupe "physical_aspects" est quant à lui plus ou moins corrélés aux trois autres groupes. En reanche, le groupe "size_frequencies" semble totalement décorrélé des groupes "weigth" et "size".
 
+Il en ressort que les variables qualitatives sont légèrement corrélés au différents variables quantitatives, ce qui ne va pas nous arranger car les variables quantitatives sont déjà très corrélées entre elles.
 
-
-## 5.2 Information des variables
-
+### 4.2.2 Informations des variables quantitatives 
 
 ```{r}
 fviz_mfa_var(data_mfa)
 ```
 
-## 5.3 information des individus
+Ce grap,hique des variables quantitatives nous donne le cercle des corrélation des variables, celles-ci étant colorées en fonction de leur groupe d'appartenance.
+
+On voit de suite que les 3 variables du groupe "size" sont toutes positivement très corélées entre elles et très corélées à l'axe 1.
+
+La variable carat semble elle être moyennement bien représenté sur le plan F1/F2, nous ne pouvons donc pas dire grand chose sur elle ici.
+
+Les 2 variables du groupe "size_frequencies" sont très positivement corrélées à l'axe 2.
+
+
+### 4.2.3 Information des variables qualitatives
+
+```{r}
+fviz_mfa_var(data_mfa, 'quali.var')
+fviz_contrib(data_mfa, choice="quali.var", axes=1:2)
+```
+
+Beaucoup de modalités sont proches du centre du graphique, ce qui veut dire qu'elles n'ont pas d'influence particulière. Les modalités se détachant le plus sont pour la variable __cut__ : Fair, Ideal et Premium, pour la variable __color__ : D,E,I,J et pour la variable __clarity__ : IF, VVS1, VVS2, SI2 et I1.
+
+Les modalités VVS1 et IF semble assez fortement associées, comme les modalités D et E. Les modalités I,J et SI2 sont également assez fortement associées.
+
+En terme de contribution, les différentes modalités des variables qualitatives contribuent très peu au plan F1/F2. Hormis la variable cut qui a tendance à contribuer le plus à travers ses modalités Premium, Ideal et Fair.
+
+### 4.2.4 information des individus
 
 ```{r}
 fviz_mfa_ind(data_mfa, col.ind = "cos2", gradient.cols=c("#024cb2","#02b26f","#b29002","#b20202"))
 ```
-Individuals gathered auround the center seem to be the worst represented. However, the individuals ont the 1 axis rather on the outside seem to be best represented.
 
-On the second axis, it sems the individuals are bddly epresented.
-This may stem from the fact that several axis should be added.
+Les individus se trouvant aux alentours du centre du grpahique semblent très mal représentés sur le plan F1/F2. En revanche ceux étant plus éloignés sont mieux représentés. Ils le sont encore plus quand ils sont du coté positif du premier axe.
 
-## 5.4 Contributions
-```{r}
-fviz_contrib(data_mfa, choice = "quanti.var", axes = 1, ylim=c(0,25))
-fviz_contrib(data_mfa, choice = "quanti.var", axes = 2, ylim=c(0,100))
-```
+Essayons de visualiser uniquement les individus ayant un cos2 supérieur au pourcentage de variance expliquée par les 2 axes:
 
 ```{r}
-fviz_contrib(data_mfa, choice="quali.var", axes=1:2)
+fviz_mfa_ind(data_mfa, col.ind = "cos2", gradient.cols=c("#024cb2","#02b26f","#b29002","#b20202"), select.ind = list(cos2=0.22))
 ```
+ 
+On voit bien que les individus se trouvant au centre du graphique ont disparus. La répartitons des individus est assez circulaire dans ce plan.
 
-Les variables qualitatives contribuent très très peu à l'ensemble. Hormis la variable cut qui a tendance à contribuer le plus. Les individus synthétique créée à partir des individus de type Premium cut, ont l'air de contribuer le plus. Cependant le reste peut être considéré comme négligeable.
+Conclusion : A faire
+
+Cependant le faible pourcentage de variance expliquée par 2 axes et le nombre de modalités totales des variables qualitatives posent des problèmes de clareté des résultats et de justesse des interprétations. C'est pourquoi nous décidons à partir de ce moment de ne plus prendre en compte les variables qualitatives dans notre modèle. Nous n'utilisons donc plus que les variables quantitatives pour expliquer la variable __price__ dans la suite de notre étude.
+
+
+# __5. Analyse en Composantes Principales__
+
+Procédons maintenant à une analyse en composantes principales.
 
 ```{r}
-fviz_contrib(data_mfa, choice="ind", xlim=c(0,25), axis=1:2)
+n=dim.data.frame(diamonds)[1]
+Ind=seq.int(1,n,10)
+data=diamonds[Ind,]
+data_acp=PCA(data,quali.sup=c(2,3,4),graph = FALSE)
 ```
 
-Contrary to the pca analysis, no individuals stand out with the same amplitude.
+## 5.1 Choix des axes
 
-
+Regardons en fonction du pourcentage d'inertie projetée sur chaque axe combien de dimensions il faudrait garder dans la suite de l'étude.
 
 ```{r}
-#for general analysis overview
-dimdesc(data_mfa)
+fviz_eig(data_acp, addlabels = TRUE)
 ```
 
+On voit très clairement qu'une seule dimension explique déjà preque 70% de l'information contenue dans le jeu de données. On prend donc très peu de risque en ne retenant qu'un axe et surtout on diminue grandement le nombre de variables explicatives. Nous préfèreront retenir 2 axes (87% de variance expliquée), ce qui facilite la représentation graphique.
+
+
+## 5.2 Etude des individus
+
+```{r}
+plot.PCA(data_acp,choix="ind", invisible = 'quali')
+```
+
+
+On peut voir sur le graphe des individus qu'ils sont pour la quasi totalité tous regroupés à un même endroit du schéma. Le nuage semble également se diviser en quatre groupes, un groupe dans chaque cadran du repère. On tentera de voir à quoi cela peut correpondre avec l'étude des variables.
+On remarque néanmoins qu'une dizaine d'individus se distinguent des autres. Nous allons tout d'abord vérifier si ces points ne seraient pas des outliers (mal représentés dans la plan à cause de la projection sur ces axes).
+Comme la part d'inertie expliquée par le plan F1/F2 est de 87%, nous allons reconstruire le nuage des individus en ne gardant que ceux dont le cos2 est supérieur à 0.8.
+
+```{r}
+plot.PCA(data_acp,choix="ind",select="cos2 0.8",unselect=0.8, habillage='cos2')
+```
+
+Nous voyons donc que plusieurs individus ont disparu de la représentation(notamment au centre), ce qui rend le nuage encore plus clairement divisé en 4 régions.
+
+```{r}
+fviz_contrib(data_acp, choice = "ind", axes = 1:2, ylim=c(0,5), top=30)
+```
+Les individus 2764 et 2714 sont ceux qui contribuent le plus à la dimension 1, comme vu sur le nuage des individus précédemment. Leur contribution étant d'ailleurs très élevée par rapport aux autres individus, ils pourraient être considérés comme outliers. Nous choisissons de ne pas les considérer comme tel ici.
+
+## 5.3 Etude des variables
+
+```{r}
+plot.PCA(data_acp,choix="var")
+```
+
+Toutes les variables sont bien représentées ici (longeur de vecteurs proche de 1)
+
+Le cercle des corrélations des variables montre que les varaibles __price__, __carat__, __depth__, __width__ et __length__ sont très fortement positivement corrélées. On retrouve ici la forte corrélation positive évoquée en début d'analyse. De plus, ces variables sont très proche de l'axe 1 donc on en déduit que la dimension 1 met en oppostion les diamants ayant des prix élevés, une longueur, largeur et profondeur importante et un poids (en carat) élevé aux diamants ayant un prix faible, une longueur, largeur, profondeur faible et un poids (en carat) faible.
+
+La variable __table__ elle est quasiment orthogonale aux autres et contribue fortement à la dimension 2. La variables __fdepth__ est quasiment confondue avec l'axe 2 , elle explique donc majoritairement cet axe et elle est quasiment orthogonales aux variables définissant la dimension 1. On en déduit donc que la dimension 2 met en opppostion les diamants ayant une forte de valeur pour la variable __fdepth__ et une faible valeur pour la variable __table__ et ceux ayant une faible valeur pour __fdepth__ mais une forte pour __table__.
+On retrouve donc que ceux deux variables sont négativement corrélées.
+
+
+Conclusion : 
+Avec cette Analyse sur Composantes Principales on pourrait donc conclure que pour expliquer le prix d'un diamant, il suffit de connaitre sa longueur, largeur, profondeur et poids. Et que plus un diamant est lourd, long, large et profond, plus son prix sera élevé.
+--> A finir
+
+
+# __6. Régression linéaire multiple__
+
+Nous nous proposons ici de traiter non plus analytiquement notre base de données mais économétriqument à l'aide de plusieurs régressions multiples. Celles ci nous permettrons de trouver un modèle linéaire pouvant expliquer au mieux les valeurs de notre variable cible Y et ayant un pouvoir prédictif satisfaisant.
+
+--> modèle mathématique
+
+Dans une régression linéaire multiple, la variable à expliquer Y est une variable quantitative et toutes les variables explicatives le sont également. C'est pourquoi nous excluons les variables qualitatives de cette analyse.
+
+De plus, pour que les résulats d'une régression multiple soient exploitables, il faut que le modèle (Y=Xbeta+epsilon) vérifient plusieurs postulats:
+
+  1. P1 : les résidus epsilon sont centrés (espérance nulle)
+
+  2. P2 : les résidus ont même variance (homoscédasticité)
+  
+  3. P3 : les résidus sont indépendants entre eux
+  
+  4. P4 : les résidus sont des variables aléatoires Gaussiennes (param (0,sigma2))
+
+## __6.1 Vérification des Postulats__
+
+```{r}
+data=data[-c(2453,2714,2754,2764,5182,5286),] #on enlève les diamants qui sont considérés comme outliers par la commande influenceIndexPlot(Reg_1)
+Reg_1=lm(data$price~data$carat + data$fdepth + data$table + data$length + data$width+ data$depth)
+vif(Reg_1)
+```
+
+On remarque grâce au test vif que nos variables sont très corrélées entre elles (on le savait déjà grâce à l'ACP effectuée précédemment), cela va donc sûrement poser problème pour la régression multiple qui supporte très mal les soucis de multicorélation.
+
+Vérifions si les résidus sont distribués de manière gaussienne:
+
+```{r}
+res=Reg_1$residuals
+hist(res,probability = T) #vérification graphique
+shapiro.test(res[1:5000]) #on ne prend que les 5000 premiers résidus car le test sur R n'autorise pas plus de 5000 observations
+```
+
+A première vue les résidus semblent suivre une loi normale centrée mais le test de Shapiro réfute violamment cette hypothèse.
+
+Vérifions l'homoscédasticité des résidus:
+
+```{r}
+bptest(Reg_1)
+```
+
+Au vu de la valeur de la p_value, on rejette également l'hypothèse nulle d'égalité des variances des résidus
+
+Vérifions pour finir l'indépendance des résidus:
+
+```{r}
+dwtest(Reg_1)
+```
+
+La p-value nous indique le rejet de l'hypoyhèse nulle d'indépendance des résidus. De manière générale l'indépendance des résidus est supposée vraie de par la façon dont les données ont été collectées. Or ici, nous n'avons pas accès à un document explicatif sur la façon dont cette base de données a été créée. Il se peut très bien que tous les diamants proviennent d'un même bijoutier auquel cas, effectivement les données sont biaisées.
+
+Au vu du rejet de tous les postulats, nous allons modifier notre variable à expliquer Y pour voir si les résidus vérifient cette fois les hypothèses nécessaires pour pouvoir mener à bien notre régression linéaire multiple.
+
+```{r}
+Reg_2=lm(log(data$price) ~ data$carat + log(data$fdepth) + log(data$table) +data$length + data$width + data$depth)
+res2=Reg_2$residuals
+vif(Reg_2)
+hist(res2,probability = T) #vérification graphique
+shapiro.test(res2[1:5000])
+bptest(Reg_2)
+dwtest(Reg_2)
+```
+
+Malheureusement, même en passant au log du prix, les résidus ne vérifient toujours aucun des postulats (même si l'on note une nette amélioration pour la normalité et l'homoscédasticité).
+Même en essayant plusieurs transformations sur notre variable Y et nos variables explicatives (suppression des variables très corrélées, variables au carré, formules de boxCox), nous n'obtenons jamais vérification des postulats par les résidus. Nous sommes donc obligées à ce stade d'abandonner la régression multiple car non pertinente.
+
+
+Nous allons maintenant effectuer des régressions différentes de la régression multiple en ce que celles ci peuvent régler les problèmes de multicorélation des variables.
+
+# __7. Régression sur Composantes Principales__
+
+La régression sur Composantes Princiaples consiste à expliquer la	variable Y non plus à l'aide des variables d'origine mais à l'aide de composantes principales obtenues par une méthode d'analyse factorielle (ACP par exemple). L'avantage de considérer des variables synthétiques est qu'elles sont non corrélées entre elles, on contourne ainsi grâce à cette méthode les problèmes de multicolinéarité des variables explicatives. La régression sur composantes principale maximise la variance de X (matrice des variables explicatives) et non la variance de Y. On portera donc une attention particulière au pourcentage de variance expliquée pour Y par nos différents modèles.
+
+```{r}
+Reg_pcr=pcr(data$price~ data$carat + data$fdepth + data$table + data$length + data$width + data$depth, scale=T, validation ='LOO') #On standardise les données car elles n'ont pas toutes la même unité
+summary(Reg_pcr)
+validationplot(Reg_pcr)
+```
+
+Le résumé de cette régression PCR nous montre que le nombre de composantes à retenir pour minimiser l'indicateur PRESS est de 6. Il n'y a donc aucune réduction de dimension. En regardant bien les pourcentages de variances expliquées pour X et Y, nous décidons de ne retenir que les 3 premières composantes car celles-ci expliquent 99.47% de la variance de X et plus de 80% de la variance de Y, ce qui est plutôt bon.
+
+## 7.1 Signification des axes
+
+Pour définir chaque axe retenu, nous allons représenter le graphe des loadings.
+
+```{r}
+plot(Reg_pcr, "loadings", comps = 1:3, legendpos = "bottomright",
+     labels = "names", xlab = "variables")
+Yloadings(Reg_pcr)[,1:3]
+```
+
+On retrouve donc les résultats de l'ACP pour les 2 premières dimensions : 
+l'axe 1 met en opposition les diamants ayant des mesures (poids, longueur, largeur, profondeur) élévées à ceux en ayant des plus faibles.
+
+Pour l'axe 2, on retrouve une forte corrélation positive avec la variable __table__  et une cette fois on a une forte corrélation négative avec la variable __fdepth__ qui avait été placée en supplémentaire lors de l'ACP. L'axe 2 met donc en opposition les diamands ayant une forte valeur de __table__ et une faible valeur de __fdpeth__ à ceux ayant au contraire une faible valeur de __table__ mais une valeur de __fdepth__ élevée.
+
+Enfin, l'axe 3 met lui en opposotion les diamants ayant de forte valeurs de __fdepth__ et __table__ à ceux ayant des faibles valeurs pour les deux variables.
+
+La variable à expliquer Y est elle très positivement corrélée à la dimension 1, comme déjà vu lors de l'ACP. Il semblerait donc que les principaux facteurs explicatifs du prix d'un diamants soit son poids (en carat) et ses dimensions. C'est en effet la pensée commune.
+
+## 7.2 Pouvoir prédictif du modèle
+
+```{r}
+predplot(Reg_pcr,ncomp=3, line=T)
+```
+
+On voit grâce à ce graphique que la prédiction faite par notre modèle n'est pas très satisfaisante. La présence d'outliers et de prix prédits négatifs montre que le modèle peut surement être amélioré. Il semble aussi que le modèle estime bien les prix des diamands vendus entre 1000 et 10000 dollars mais beacoup moins bien les autres fourchettes de prix. 
+
+On va essayer de voir si expliquer le log du prix au lieu du prix lui-même améliore le modèle:
+
+```{r}
+Reg_pcr2=pcr(log(data$price)~data$carat + data$fdepth + data$table + data$length + data$width + data$depth, scale=T, validation ='LOO') #On standardise les données car elles n'ont pas toutes la même unité
+summary(Reg_pcr2)
+validationplot(Reg_pcr2)
+```
+
+Encore une fois, il faut 6 composantes pour minimiser l'indicateur PRESS mais on se rend compte que 4 composantes donne quasiment la même valeur. On voit donc le début d'une réduction de dimension.
+En observant les pourcentages de variances expliquées, en gardant également 3 composantes, on explique cette fois-ci plus de 91% de la variance de Y (log(price)) et plus de 99% de la variance de X. Ce modèle semble donc meilleur.
+
+Vérifions si la signification des axes est toujours la même avec ce modèle:
+
+```{r}
+plot(Reg_pcr2, "loadings", comps = 1:3, legendpos = "bottomright",
+     labels = "names", xlab = "variables")
+Yloadings(Reg_pcr2)[,1:3]
+```
+
+La définition des axes est inchangée et la variable Y (log(price)) est toujours plus corrélée à l'axe 1, donc on conserve les interprétations faites plus haut.
+
+```{r}
+predplot(Reg_pcr2,ncomp=3, line=T)
+```
+
+On obtient cette fois une courbe beaucoup plus proche d'une droite. Nous allons donc garder ce modèle.
+
+## 7.3 Coefficients du modèle
+
+```{r}
+coef(Reg_pcr2,ncomp=3)
+```
+
+Les	coefficients de	la régression	permettent de quantifier l’impact	de chaque	variable sur la variable à expliquer Y( __log(price)__ )	lorsque	l’on prend	en compte 3 composantes principales.
+
+Le prix d'un diamant est donc fortement positivement lié à sa largeur, sa longeur, son poids et sa profondeur. Par exemple, si l'on augmente d'une unité la variable carat, le log du prix du diamant augmente 0.24, toutes choses égales par ailleurs.
+
+En revanche, le prix est négativement corrélé aux variables __fdepth__ et __table__. Si l'on augmente d'une unité la variable __table__ alors le log du prix du diamant diminue de 0.02, TCEPA.
+
+
+Cette méthode (PCR) nous a donc permis de trouver un modèle satisfaisant pour expliquer le log du prix des diamants de la base de données. Cependant, la régression sur composantes princiaples est une méthode maximisant uniquement la variance des X (variables explicatives). Nous allons donc pour finir notre étude, utiliser une autre méthode de régression sur variables latentes, la PLS.
+
+
+# __8. Partial Least Squares Regression__
+
+Cette méthode de régression a l'avantage de pouvoir utiliser et des variables quantitatives et des variables qualitatives comme variables explicatives. De plus, cette méthode maximise non plus uniquement la variance de Y ou la variances des X mais la covariance entre X et Y. Elle est également très pertinente en cas de problème de degrés de liberté et de multicolinéarité.
+
+Nous allons donc effectuer une régression PLS en utilisant uniquement les variables explicatives quantitatives, pour pouvoir comparer les résultats obtenus aux résultats de la pcr effectuée précédemment.
+
+## 8.1 Régression PLS
+
+```{r}
+Reg_pls=plsr(log(price) ~ carat + fdepth + table + length + width + depth, data=data, scale=TRUE, validation="LOO")
+summary(Reg_pls)
+```
+
+Là encore, 6 composantes minimisent l'indicateur PRESS mais 4 composantes seulement donnent quasiment les mêmes résultats. Pour pouvoir comparer cette régression à la pcr précédente, nous allons également conserver 3 axes. Les 3 premiers axes expliquent 98% de la variance des X et quasiment 92% de la variance de Y (log(price)). Ne garder que 3 axes est donc bien justifié ici.
+
+## 8.2 Signification des axes
+
+```{r}
+plot(Reg_pls, "loadings", comps = 1:3, legendpos = "bottomright",
+     labels = "names", xlab = "variables")
+Yloadings(Reg_pls)[,1:3]
+```
+
+Nous retrouvons pour la dimension 1 exactement la même définition que lors de nos différentes pcr. L'axe 1 met toujours en oppposition les diamants ayant de fortes valeurs pour les variables __carat__, __length__, __width__ et __depth__ aux diamants ayant de faible valeurs pour ces variables.
+
+En revanche, la définition de l'axe 2 change. Lors de notre pcr, l'axe 2 mettait en opposition les diamants ayant une forte valeur pour la variale __table__ et une faible valeur pour la variable __fdepth__ à ceux ayant les caractéristiques inverses. Ici, la variable __table__ est fortement négativement corrélée à l'axe 2 et la variable __fdepth__ est plus faiblement positivement corrélée à l'axe 2. On a donc inversé le sens de la dmension 2 par rapport à la pcr.
+
+Le 3ème axe est quant à lui uniquement définit par la variable __fdepth__, négativement corrélée à l'axe. La dimension 3 met donc en opposition les diamants ayant une faible valeur de __fdepth__ à ceux ayant une forte valeur.
+
+Les loadings montrent encore une fois que la variable cible Y est plus corrélée avec la dimension 1 qu'avec toutes les autres dimensions. Cependant, le coefficient pour l'axe 2 est cette fois-ci positif et le coefficient pour l'axe 3 est plus élevé que pour la pcr. La variable __fdepth__ donne donc l'impression de jouer un rôle plus important dans l'explication du prix des diamants ici.
+
+## 8.3 Qualité de prédiction du modèle
+
+```{r}
+predplot(Reg_pls,ncomp=3, line=T)
+```
+
+On obtient également ici une courbe quasi-linéaire. Le modèle est donc satisfaisant. Les 2 méthodes, pcr et pls, donnent donc à peu de choses près les mêmes résulats pour ce modèle.
+
+## 8.4 Coefficients du modèle
+
+```{r}
+coef(Reg_pls,ncomp=3)
+```
+
+On remarque tout d'abord que les signes des coefficients sont les mêmes que pour la pcr mais la valeur du coefficient pour carat est beaucoup plus faible (divisé par 2). Cela voudrait donc dire que le poids d'un diamant peut ne pas être aussi important dans l'explication de son prix qu'on pourrait penser à première vue. Si l'on compare ces résultats à ceux de la pcr, on pourrait donc dire qu'un diamant ayant un poids important mais des dimensions plus faible aura le même prix qu'un diamant de poids plus faible mais ayant des dimensions plus importantes. En revanche si ce dernier diamant à de fortes valeurs pour fdepth et table, alors son prix diminuera plus rapidement que pour le premier diamant.
+
+En ne regardant que les résultats que l'on obtient ici, on peut dire que si l'on augmente la profondeur du diamant d'une unité (le mm ici en l'occurence) alors le log du prix augmente de 0.29, TCEPA.
+Enfin, si l'on augmente d'une unité le variable __fdepth__ alors le log du prix du diamant diminue de 0.06, TCEPA.
+
+Conclusion du paragraphe
+
+# __9. Conclusion générale__
